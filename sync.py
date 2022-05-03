@@ -15,25 +15,25 @@ def readJsonFile(dir, jsonPath):
     else:
         with open(jsonPath) as f:
             Dict = json.load(f)
-    return Dict, jsonPath
+    return Dict
 
 def getTimeString(path):
-    fullDateFloat = os.path.getmtime(currentPath)
+    fullDateFloat = os.path.getmtime(path)
     fullDateTime = datetime.datetime.fromtimestamp(fullDateFloat)
-    return fullDateTime.strftime("%Y-%m-%d %H:%M:%S  +1200")
+    return fullDateTime.strftime("%Y-%m-%d %H:%M:%S +1200")
             
 def getDigest(path):
     sha256Hash = hashlib.sha256()
-    with open(currentPath,"rb") as f:
+    with open(path,"rb") as f:
         # Read and update hash string value in blocks of 4K
         for byteBlock in iter(lambda: f.read(4096),b""):
             sha256Hash.update(byteBlock)
     return sha256Hash.hexdigest()
 
 def updateLastModTime(path, syncTime):
-    syncTime = syncTime[:-7]
+    syncTime = syncTime[:-6]
     updatedTime = datetime.datetime.strptime(syncTime, '%Y-%m-%d %H:%M:%S').timestamp()
-    os.utime(currentPath, (os.path.getatime(currentPath), updatedTime))
+    os.utime(path, (os.path.getatime(path), updatedTime))
                     
 def updateSyncFile(dir):
     jsonPath = os.path.join(dir, ".sync.JSON")
@@ -69,7 +69,7 @@ def updateSyncFile(dir):
                 #get the corresponding datetime from this string
                 updateLastModTime(currentPath, syncTime)
     with open(jsonPath, "w") as outfile:
-        json.dump(Dict, outfile)
+        json.dump(Dict, outfile, indent = 4)
    
 #Get your two directories
 dir1 = "dir1"
@@ -95,7 +95,7 @@ elif (not isDir1) or (not isDir2):
     os.mkdir(empty)
     open(os.path.join(empty, ".sync.JSON"), "x")
     emptyDict = {}
-    jsonPath = os.path.join(dir, ".sync.JSON")
+    jsonPath = os.path.join(full, ".sync.JSON")
     fullDict = readJsonFile(full, jsonPath)
     #go through the other directory's files
     for file in os.listdir(full):
@@ -131,9 +131,9 @@ elif (not isDir1) or (not isDir2):
         if os.path.isdir(currentPath):
             shutil.copytree(currentPath, os.path.join(empty, file))
     with open(jsonPath, "w") as outfile:
-        json.dump(fullDict, outfile)
+        json.dump(fullDict, outfile, indent = 4)
     with open(os.path.join(empty, ".sync.JSON"), "w") as outfile:
-        json.dump(emptyDict, outfile)
+        json.dump(emptyDict, outfile, indent = 4)
 else:
     updateSyncFile(dir1)
     updateSyncFile(dir2)
