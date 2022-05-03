@@ -2,7 +2,8 @@ import os
 import shutil
 import hashlib
 import json
-
+import time
+import datetime
 
 # Get the file directories, check if they're actual valid directories.
 
@@ -144,13 +145,44 @@ elif (not isDir1) or (not isDir2):
         if os.path.isfile(currentPath):
             shutil.copy(currentPath, empty)
             
-            #update the json file for both
-            emptyDict[file] = ["date", "time"]
+            #get the file's time
+            fullDateFloat = os.path.getmtime(currentPath)
+            fullDateTime = datetime.datetime.fromtimestamp(fullDateFloat)
+            fullDateString = fullDateTime.strftime("%Y-%m-%d %H:%M:%S  +1200")
+            #fullDateString = time.ctime(fullDateFloat)
+            #get the file's digest
+            sha256Hash = hashlib.sha256()
+            with open(currentPath,"rb") as f:
+            # Read and update hash string value in blocks of 4K
+                for byteBlock in iter(lambda: f.read(4096),b""):
+                    sha256Hash.update(byteBlock)
+            fullDigest = sha256Hash.hexdigest()
             
-            if file in fullDict:
-                fullDict[file] = ["date", "time"] + fullDict[file]
+            
+            #Check if the current file is in the json file (dictionary) already
+            if file not in fullDict:
+                #if not, then add it in
+                fullDict[file] = [[fullDateString, fullDigest]]
+                
+            #check if the current file digest matches the newest corresponding sync file digest
+            elif fullDict[file][0][1] != fullDigest:
+                #if it doesn't, then append this data to the front of the sync file
+                fullDict[file] = [[fullDateString, fullDigest], fullDict[file]]
+            #if the current file has a matching digest, then update the current file's modified time
+            #to match the sync file  (we can do this step even if the time is already the same)
             else:
-                fullDict[file] = ["date", "time"]
+                #get the newest sync time
+                syncTime = fullDict[file][0][0]
+                #get the corresponding datetime from this string
+                dateTime_obj = datetime.datetime.timestamp(syncTime)
+                #strptime(syncTime, '%a %b  %d %H:%M:%S.%f %Y')
+                #convert this datetime into a float
+                time_obj = time.timegm(dateTime_obj)
+                #update the current file's modified time using the utime function
+                os.utime(currentPath, (os.path.getmtime(currentPath), time_obj))
+              
+            #update the json file for both
+            emptyDict[file] = [[fullDict[file][0][0], fullDigest]]   
                         
         #if it's a directory, copy it over recursively
         if os.path.isdir(currentPath):
