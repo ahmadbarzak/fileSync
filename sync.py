@@ -2,7 +2,7 @@ import os
 import shutil
 import hashlib
 import json
-import time
+import sys
 import datetime
 
 
@@ -40,11 +40,11 @@ def getLastModTime(syncTime):
     return datetime.datetime.strptime(syncTime, '%Y-%m-%d %H:%M:%S').timestamp()
                     
 def updateSyncFile(dir):
-    jsonPath = os.path.join(dir, ".sync.JSON")
+    jsonPath = os.path.join(dir, ".sync")
     Dict = readJsonFile(dir, jsonPath)
     #go through the other directory's files
     for file in os.listdir(dir):
-        if(file == ".sync.JSON"):
+        if(file == ".sync"):
             continue
         currentPath = os.path.join(dir, file)
         #if it's a file, copy it over
@@ -97,15 +97,20 @@ def matchDigests(DictA, DictB, dirA, dirB, key, found):
         return found
    
 #Get your two directories
-dir1 = "dir1"
-dir2 = "dir2"
+
+if not(len(sys.argv) == 3): 
+    print("Invalid number of inputs: please insert two valid directories.")
+    quit()
+
+dir1 = sys.argv[1]
+dir2 = sys.argv[2]
 #check if each directory is actually valid
 isDir1 = os.path.isdir(dir1)
 isDir2 = os.path.isdir(dir2)
 #if neither directory is valid, then an error message should display
 #and the programme should stop running
 if (not isDir1) and (not isDir2):
-    print("Insert error here and exit")
+    print("Directories do not exist, please insert two valid directories.")
 #if one directory is valid but the other isn't, then the other
 #directory should be created and the files of the valid one
 #should be copied into the other directory    
@@ -118,13 +123,13 @@ elif (not isDir1) or (not isDir2):
         full = dir1
     #make the directory
     os.mkdir(empty)
-    open(os.path.join(empty, ".sync.JSON"), "x")
+    open(os.path.join(empty, ".sync"), "x")
     emptyDict = {}
-    jsonPath = os.path.join(full, ".sync.JSON")
+    jsonPath = os.path.join(full, ".sync")
     fullDict = readJsonFile(full, jsonPath)
     #go through the other directory's files
     for file in os.listdir(full):
-        if(file == ".sync.JSON"):
+        if(file == ".sync"):
             continue
         currentPath = os.path.join(full, file)
         #if it's a file, copy it over
@@ -157,7 +162,7 @@ elif (not isDir1) or (not isDir2):
             shutil.copytree(currentPath, os.path.join(empty, file))
     with open(jsonPath, "w") as outfile:
         json.dump(fullDict, outfile, indent = 4)
-    with open(os.path.join(empty, ".sync.JSON"), "w") as outfile:
+    with open(os.path.join(empty, ".sync"), "w") as outfile:
         json.dump(emptyDict, outfile, indent = 4)
 else:
     Dict1 = updateSyncFile(dir1)
