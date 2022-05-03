@@ -34,6 +34,10 @@ def updateLastModTime(path, syncTime):
     syncTime = syncTime[:-6]
     updatedTime = datetime.datetime.strptime(syncTime, '%Y-%m-%d %H:%M:%S').timestamp()
     os.utime(path, (os.path.getatime(path), updatedTime))
+    
+def getLastModTime(syncTime):
+    syncTime = syncTime[:-6]
+    return datetime.datetime.strptime(syncTime, '%Y-%m-%d %H:%M:%S').timestamp()
                     
 def updateSyncFile(dir):
     jsonPath = os.path.join(dir, ".sync.JSON")
@@ -70,6 +74,27 @@ def updateSyncFile(dir):
                 updateLastModTime(currentPath, syncTime)
     with open(jsonPath, "w") as outfile:
         json.dump(Dict, outfile, indent = 4)
+    return Dict
+
+def fileMerge(DictA, DictB, dirA, dirB, key):
+    os.remove(os.path.join(dirB, key))
+    shutil.copy(os.path.join(dirA, key), dirB) 
+    DictB[key] = [[DictA[key][0][0], DictA[key][0][1]]] + DictB[key]
+    updateLastModTime(os.path.join(dirA, key), DictA[key][0][0])
+    updateLastModTime(os.path.join(dirB, key), DictA[key][0][0])
+
+def matchDigests(DictA, DictB, dirA, dirB, key, found):
+    if found == 0:
+        for pair in DictB[key]:
+            if DictA[key][0][1] == pair[1]:
+                found = 1
+                os.remove(os.path.join(dirB, key))
+                shutil.copy(os.path.join(dirA, key), dirB) 
+                DictB[key] = [[DictA[key][0][0], DictA[key][0][1]]] + DictB[key]
+                updateLastModTime(os.path.join(dirA, key), DictA[key][0][0])
+                updateLastModTime(os.path.join(dirB, key), DictA[key][0][0])
+                break
+        return found
    
 #Get your two directories
 dir1 = "dir1"
@@ -135,6 +160,29 @@ elif (not isDir1) or (not isDir2):
     with open(os.path.join(empty, ".sync.JSON"), "w") as outfile:
         json.dump(emptyDict, outfile, indent = 4)
 else:
-    updateSyncFile(dir1)
-    updateSyncFile(dir2)
+    Dict1 = updateSyncFile(dir1)
+    Dict2 = updateSyncFile(dir2)
     
+    for key in Dict1:
+        if key in Dict2:
+            dir1ModTime = getLastModTime(Dict1[key][0][0])
+            dir2ModTime = getLastModTime(Dict2[key][0][0])
+            if Dict1[key][0][1] == Dict2[key][0][1]:
+                if dir1ModTime < dir2ModTime:
+                    Dict2[key][0][0] = Dict1[key][0][0]
+                    updateLastModTime(os.path.join(dir1, key), Dict1[key][0][0])
+                    updateLastModTime(os.path.join(dir2, key), Dict1[key][0][0])
+                else:
+                    Dict1[key][0][0] = Dict2[key][0][0]
+                    updateLastModTime(os.path.join(dir1, key), Dict2[key][0][0])
+                    updateLastModTime(os.path.join(dir2, key), Dict2[key][0][0])
+            else:
+                found = matchDigests(Dict1, Dict2, dir1, dir2, key, 0)
+                found = matchDigests(Dict2, Dict1, dir2, dir1, key, found)
+                if found == 0:
+                    if dir1ModTime > dir2ModTime:
+                        fileMerge(Dict1, Dict2, dir1, dir2, key)
+                    else:
+                        fileMerge(Dict2, Dict1, dir2, dir1, key)
+                
+                
