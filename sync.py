@@ -31,6 +31,7 @@ def getDigest(path):
     return sha256Hash.hexdigest()
 
 def updateLastModTime(path, syncTime):
+    
     syncTime = syncTime[:-6]
     updatedTime = datetime.datetime.strptime(syncTime, '%Y-%m-%d %H:%M:%S').timestamp()
     os.utime(path, (os.path.getatime(path), updatedTime))
@@ -98,12 +99,12 @@ def matchDigests(DictA, DictB, dirA, dirB, key, found):
    
 #Get your two directories
 
-if not(len(sys.argv) == 3): 
-    print("Invalid number of inputs: please insert two valid directories.")
-    quit()
+# if not(len(sys.argv) == 3): 
+#     print("Invalid number of inputs: please insert two valid directories.")
+#     quit()
 
-dir1 = sys.argv[1]
-dir2 = sys.argv[2]
+dir1 = "dir1" # sys.argv[1]
+dir2 = "dir2" # sys.argv[2]
 #check if each directory is actually valid
 isDir1 = os.path.isdir(dir1)
 isDir2 = os.path.isdir(dir2)
@@ -175,12 +176,10 @@ else:
             if Dict1[key][0][1] == Dict2[key][0][1]:
                 if dir1ModTime < dir2ModTime:
                     Dict2[key][0][0] = Dict1[key][0][0]
-                    updateLastModTime(os.path.join(dir1, key), Dict1[key][0][0])
                     updateLastModTime(os.path.join(dir2, key), Dict1[key][0][0])
                 else:
                     Dict1[key][0][0] = Dict2[key][0][0]
                     updateLastModTime(os.path.join(dir1, key), Dict2[key][0][0])
-                    updateLastModTime(os.path.join(dir2, key), Dict2[key][0][0])
             else:
                 found = matchDigests(Dict1, Dict2, dir1, dir2, key, 0)
                 found = matchDigests(Dict2, Dict1, dir2, dir1, key, found)
@@ -189,5 +188,8 @@ else:
                         fileMerge(Dict1, Dict2, dir1, dir2, key)
                     else:
                         fileMerge(Dict2, Dict1, dir2, dir1, key)
-                
+    with open(os.path.join(dir1, ".sync"), "w") as outfile:
+        json.dump(Dict1, outfile, indent = 4)
+    with open(os.path.join(dir2, ".sync"), "w") as outfile:
+        json.dump(Dict2, outfile, indent = 4)
                 
