@@ -7,7 +7,7 @@ import sys
 import datetime
 
 
-def readJsonFile(dir, jsonPath):
+def readJsonFile(jsonPath):
     if (not os.path.exists(jsonPath)):
         open(jsonPath, "x")
         Dict = {}
