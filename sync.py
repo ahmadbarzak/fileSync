@@ -4,8 +4,7 @@ import shutil
 import hashlib
 import json
 import sys
-import datetime
-
+import time
 
 def readJsonFile(jsonPath):
     if (not os.path.exists(jsonPath)):
@@ -18,10 +17,8 @@ def readJsonFile(jsonPath):
             Dict = json.load(f)
     return Dict
 
-def getTimeString(path):
-    fullDateFloat = os.path.getmtime(path)
-    fullDateTime = datetime.datetime.fromtimestamp(fullDateFloat)
-    return fullDateTime.strftime("%Y-%m-%d %H:%M:%S +1200")
+def getTimeString(timeFloat):
+    return time.strftime("%Y-%m-%d %H:%M:%S %z", time.localtime(timeFloat))
             
 def getDigest(path):
     sha256Hash = hashlib.sha256()
@@ -32,18 +29,15 @@ def getDigest(path):
     return sha256Hash.hexdigest()
 
 def updateLastModTime(path, syncTime):
-    
-    syncTime = syncTime[:-6]
-    updatedTime = datetime.datetime.strptime(syncTime, '%Y-%m-%d %H:%M:%S').timestamp()
+    updatedTime = time.mktime(time.strptime(syncTime, "%Y-%m-%d %H:%M:%S %z"))    
     os.utime(path, (os.path.getatime(path), updatedTime))
-    
+
 def getLastModTime(syncTime):
-    syncTime = syncTime[:-6]
-    return datetime.datetime.strptime(syncTime, '%Y-%m-%d %H:%M:%S').timestamp()
-                    
+    return time.mktime(time.strptime(syncTime, "%Y-%m-%d %H:%M:%S %z"))
+                        
 def updateSyncFile(dir):
     jsonPath = os.path.join(dir, ".sync")
-    Dict = readJsonFile(dir, jsonPath)
+    Dict = readJsonFile(jsonPath)
     #go through the other directory's files
     for file in os.listdir(dir):
         if(file == ".sync"):
@@ -52,34 +46,27 @@ def updateSyncFile(dir):
         #if it's a file, copy it over
         if os.path.isfile(currentPath):
             #get the file's time
-            #get the file's time
-            fullDateString = getTimeString(currentPath)
-            #fullDateString = time.ctime(fullDateFloat)
+            fullTimeString = getTimeString(os.path.getmtime(currentPath))
             #get the file's digest
             digest = getDigest(currentPath)
             
             #Check if the current file is in the json file (dictionary) already
             if file not in Dict:
             #if not, then add it in
-                Dict[file] = [[fullDateString, digest]]
+                Dict[file] = [[fullTimeString, digest]]
             
             #check if the current file digest matches the newest corresponding sync file digest
             elif Dict[file][0][1] != digest:
                 #if it doesn't, then append this data to the front of the sync file
-                Dict[file] = [[fullDateString, digest]] + Dict[file]
+                Dict[file] = [[fullTimeString, digest]] + Dict[file]
                 #if the current file has a matching digest, then update the current file's modified time
                 #to match the sync file  (we can do this step even if the time is already the same)
             else:
-                #get the newest sync time
-                syncTime = Dict[file][0][0]
-                #get the corresponding datetime from this string
-                updateLastModTime(currentPath, syncTime)
-                
+                updateLastModTime(currentPath, Dict[file][0][0])       
     for key in Dict:
         if not os.path.isfile(os.path.join(dir, key)):
-            if not (Dict[key][0][1] == "deleted"):
-                currentDateTime = datetime.datetime.now()
-                currentTime = currentDateTime.strftime("%Y-%m-%d %H:%M:%S +1200")
+            if not (Dict[key][0][1] == "deleted"): 
+                currentTime = time.strftime("%Y-%m-%d %H:%M:%S %z", time.localtime(time.time()))
                 Dict[key] = [[currentTime, "deleted"]] + Dict[key]
     
     with open(jsonPath, "w") as outfile:
@@ -100,11 +87,10 @@ def matchDigests(DictA, DictB, dirA, dirB, key, found):
         for pair in DictB[key]:
             if DictA[key][0][1] == pair[1]:
                 found = 1
-                os.remove(os.path.join(dirB, key))
-                shutil.copy(os.path.join(dirA, key), dirB) 
-                DictB[key] = [[DictA[key][0][0], DictA[key][0][1]]] + DictB[key]
-                updateLastModTime(os.path.join(dirA, key), DictA[key][0][0])
-                updateLastModTime(os.path.join(dirB, key), DictA[key][0][0])
+                os.remove(os.path.join(dirA, key))
+                shutil.copy(os.path.join(dirB, key), dirA) 
+                DictA[key] = [[DictB[key][0][0], DictB[key][0][1]]] + DictA[key]
+                updateLastModTime(os.path.join(dirA, key), DictB[key][0][0])
                 break
         return found
 
@@ -116,6 +102,7 @@ def syncDirectories(dir1, dir2):
     #and the programme should stop running
     if (not isDir1) and (not isDir2):
         print("Directories do not exist, please insert two valid directories.")
+        quit()
     #if one directory is valid but the other isn't, then the other
     #directory should be created and the files of the valid one
     #should be copied into the other directory    
@@ -131,7 +118,7 @@ def syncDirectories(dir1, dir2):
         open(os.path.join(empty, ".sync"), "x")
         emptyDict = {}
         jsonPath = os.path.join(full, ".sync")
-        fullDict = readJsonFile(full, jsonPath)
+        fullDict = readJsonFile(jsonPath)
         #go through the other directory's files
         for file in os.listdir(full):
             if(file == ".sync"):
@@ -141,25 +128,22 @@ def syncDirectories(dir1, dir2):
             if os.path.isfile(currentPath):
                 shutil.copy(currentPath, empty)     
                 #get the file's time
-                fullDateString = getTimeString(currentPath) 
-                #fullDateString = time.ctime(fullDateFloat)
+                fullTimeString = getTimeString(os.path.getmtime(currentPath)) 
                 #get the file's digest    
                 digest = getDigest(currentPath)    
                 #Check if the current file is in the json file (dictionary) already
                 if file not in fullDict:
                     #if not, then add it in
-                    fullDict[file] = [[fullDateString, digest]]        
+                    fullDict[file] = [[fullTimeString, digest]]        
                 #check if the current file digest matches the newest corresponding sync file digest
                 elif fullDict[file][0][1] != digest:
                     #if it doesn't, then append this data to the front of the sync file
-                    fullDict[file] = [[fullDateString, digest]] + fullDict[file]
+                    fullDict[file] = [[fullTimeString, digest]] + fullDict[file]
                 #if the current file has a matching digest, then update the current file's modified time
                 #to match the sync file  (we can do this step even if the time is already the same)
                 else:
-                    #get the newest sync time
-                    syncTime = fullDict[file][0][0]
-                    #get the corresponding datetime from this string        
-                    updateLastModTime(currentPath, syncTime)        
+                    #get the newest sync time  
+                    updateLastModTime(currentPath, fullDict[file][0][0])        
                 #update the json file for both
                 emptyDict[file] = [[fullDict[file][0][0], digest]]                   
             #if it's a directory, copy it over recursively
@@ -170,8 +154,7 @@ def syncDirectories(dir1, dir2):
         for key in fullDict:
             if not os.path.isfile(os.path.join(full, key)):
                 if not (fullDict[key][0][1] == "deleted"):
-                    currentDateTime = datetime.datetime.now()
-                    currentTime = currentDateTime.strftime("%Y-%m-%d %H:%M:%S +1200")
+                    currentTime = time.strftime("%Y-%m-%d %H:%M:%S %z", time.localtime(time.time()))
                     fullDict[key] = [[currentTime, "deleted"]] + fullDict[key]
         
         with open(jsonPath, "w") as outfile:
@@ -262,15 +245,12 @@ def syncDirectories(dir1, dir2):
     for dir in os.listdir(dir2):
         if not (dir in os.listdir(dir1)):
             syncDirectories(os.path.join(dir1, dir), os.path.join(dir2, dir))
-    
+
 if not(len(sys.argv) == 3): 
     print("Invalid number of inputs: please insert two valid directories.")
     quit()
 
 dir1 = sys.argv[1]
 dir2 = sys.argv[2]
-
 #this whole process synchronizes two directories:
 syncDirectories(dir1, dir2)
-
-
