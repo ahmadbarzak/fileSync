@@ -82,17 +82,15 @@ def fileMerge(DictA, DictB, dirA, dirB, key):
     updateLastModTime(os.path.join(dirA, key), DictA[key][0][0])
     updateLastModTime(os.path.join(dirB, key), DictA[key][0][0])
 
-def matchDigests(DictA, DictB, dirA, dirB, key, found):
-    if found == 0:
-        for pair in DictB[key]:
-            if DictA[key][0][1] == pair[1]:
-                found = 1
-                os.remove(os.path.join(dirA, key))
-                shutil.copy(os.path.join(dirB, key), dirA) 
-                DictA[key] = [[DictB[key][0][0], DictB[key][0][1]]] + DictA[key]
-                updateLastModTime(os.path.join(dirA, key), DictB[key][0][0])
-                break
-        return found
+def matchDigests(DictA, DictB, dirA, dirB, key):
+    for pair in DictB[key]:
+        if DictA[key][0][1] == pair[1]:
+            os.remove(os.path.join(dirA, key))
+            shutil.copy(os.path.join(dirB, key), dirA) 
+            DictA[key] = [[DictB[key][0][0], DictB[key][0][1]]] + DictA[key]
+            updateLastModTime(os.path.join(dirA, key), DictB[key][0][0])
+            return 1
+    return 0
 
 def syncDirectories(dir1, dir2):
     #check if each directory is actually valid
@@ -145,7 +143,8 @@ def syncDirectories(dir1, dir2):
                     #get the newest sync time  
                     updateLastModTime(currentPath, fullDict[file][0][0])        
                 #update the json file for both
-                emptyDict[file] = [[fullDict[file][0][0], digest]]                   
+                emptyDict[file] = [[fullDict[file][0][0], digest]]
+                updateLastModTime(os.path.join(empty, file), fullDict[file][0][0])                  
             #if it's a directory, copy it over recursively
             if os.path.isdir(currentPath):
                 shutil.copytree(currentPath, os.path.join(empty, file))
@@ -219,11 +218,15 @@ def syncDirectories(dir1, dir2):
                         found = matchDigests(Dict2, Dict1, dir2, dir1, key, found)
                         if found == 0:
                             if dir1ModTime > dir2ModTime:
-                                os.remove(os.path.join(dir2, key))
-                                fileMerge(Dict1, Dict2, dir1, dir2, key)
+                                updated = matchDigests(Dict1, Dict2, dir1, dir2, key)
+                                if not updated:
+                                    os.remove(os.path.join(dir2, key))
+                                    fileMerge(Dict1, Dict2, dir1, dir2, key)
                             else:
-                                os.remove(os.path.join(dir1, key))
-                                fileMerge(Dict2, Dict1, dir2, dir1, key)
+                                updated = matchDigests(Dict2, Dict1, dir2, dir1, key)
+                                if not updated:
+                                    os.remove(os.path.join(dir1, key))
+                                    fileMerge(Dict2, Dict1, dir2, dir1, key)
             # if not then chuck it into the other directory
             else:
                 if not (Dict1[key][0][1] == "deleted"):
@@ -253,4 +256,6 @@ if not(len(sys.argv) == 3):
 dir1 = sys.argv[1]
 dir2 = sys.argv[2]
 #this whole process synchronizes two directories:
+
+
 syncDirectories(dir1, dir2)
