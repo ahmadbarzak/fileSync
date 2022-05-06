@@ -214,19 +214,16 @@ def syncDirectories(dir1, dir2):
                                 fileMerge(Dict1, Dict2, dir1, dir2, key)
                     
                     else:
-                        found = matchDigests(Dict1, Dict2, dir1, dir2, key, 0)
-                        found = matchDigests(Dict2, Dict1, dir2, dir1, key, found)
-                        if found == 0:
-                            if dir1ModTime > dir2ModTime:
-                                updated = matchDigests(Dict1, Dict2, dir1, dir2, key)
-                                if not updated:
-                                    os.remove(os.path.join(dir2, key))
-                                    fileMerge(Dict1, Dict2, dir1, dir2, key)
-                            else:
-                                updated = matchDigests(Dict2, Dict1, dir2, dir1, key)
-                                if not updated:
-                                    os.remove(os.path.join(dir1, key))
-                                    fileMerge(Dict2, Dict1, dir2, dir1, key)
+                        if dir1ModTime > dir2ModTime:
+                            updated = matchDigests(Dict1, Dict2, dir1, dir2, key)
+                            if not updated:
+                                os.remove(os.path.join(dir2, key))
+                                fileMerge(Dict1, Dict2, dir1, dir2, key)
+                        else:
+                            updated = matchDigests(Dict2, Dict1, dir2, dir1, key)
+                            if not updated:
+                                os.remove(os.path.join(dir1, key))
+                                fileMerge(Dict2, Dict1, dir2, dir1, key)
             # if not then chuck it into the other directory
             else:
                 if not (Dict1[key][0][1] == "deleted"):
@@ -256,6 +253,5 @@ if not(len(sys.argv) == 3):
 dir1 = sys.argv[1]
 dir2 = sys.argv[2]
 #this whole process synchronizes two directories:
-
 
 syncDirectories(dir1, dir2)
